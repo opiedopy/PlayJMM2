@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JMM2a</title>
+<title>JMM2b</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Montserrat:wght@400;600&display=swap');
 
@@ -381,7 +381,12 @@ function syncLastShot() {
 
 function updatePhysics() {
   const v0 = (document.getElementById('clubSpeed').value * document.getElementById('smashFactor').value) * CONFIG.MPH_TO_MS;
-  const launchDeg = parseFloat(document.getElementById('launchAngle').value); 
+  
+  // MODIFIED: AoA now influences the Launch Angle
+  const baseLaunch = parseFloat(document.getElementById('launchAngle').value);
+  const aoaEffect = parseFloat(document.getElementById('aoa').value);
+  const launchDeg = baseLaunch + (aoaEffect * 0.5); 
+  
   const backspin = parseFloat(document.getElementById('spinRate').value);
   const rad = launchDeg * Math.PI / 180;
   let vx = v0 * Math.cos(rad), vy = v0 * Math.sin(rad), x = 0, y = 0, apex = 0;
@@ -406,7 +411,7 @@ function updatePhysics() {
   document.getElementById('valCarry').textContent = Math.round(carry);
   document.getElementById('valTotal').textContent = Math.round(carry * 1.08);
   document.getElementById('valApex').textContent = Math.round(apex * CONFIG.YARDS_PER_METER);
-  document.getElementById('valLaunch').textContent = launchDeg;
+  document.getElementById('valLaunch').textContent = launchDeg.toFixed(1);
   document.getElementById('valSmash').textContent = document.getElementById('smashFactor').value;
   document.getElementById('valAoA').textContent = document.getElementById('aoa').value;
 }
@@ -430,5 +435,6 @@ updatePhysics();
 </script>
 </body>
 </html>
+
 
 
