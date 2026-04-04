@@ -89,6 +89,20 @@
     margin-bottom: 12px;
   }
 
+  .club-row { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+  .club-btn {
+    flex: 1;
+    padding: 6px 2px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--brass);
+    color: var(--brass);
+    font-size: 0.6rem;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .club-btn.active { background: var(--brass); color: var(--wood); }
+
   .slider-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
   .slider-box { background: rgba(0, 0, 0, 0.3); padding: 5px 8px; border-radius: 4px; border: 1px solid rgba(212, 175, 55, 0.1); }
   .slider-label { display: flex; justify-content: space-between; font-size: 0.55rem; text-transform: uppercase; color: var(--parchment); }
@@ -126,7 +140,7 @@
 <body>
 
 <h2>⛳ JMM2a</h2>
-<div class="subtitle">Predictive Lab</div>
+<div class="subtitle">Predictive Lab • Falcon Edition</div>
 
 <nav class="nav-tabs">
   <button class="nav-btn active" onclick="showView('live', this)">Live Lab</button>
@@ -159,6 +173,13 @@
   </svg>
 
   <div class="controls">
+    <div class="club-row">
+      <button class="club-btn" onclick="setClub(10.5, 2400, 2, 110)">DR</button>
+      <button class="club-btn" onclick="setClub(24, 5000, -2, 90)">5I</button>
+      <button class="club-btn" onclick="setClub(32, 6500, -4, 82)">7I</button>
+      <button class="club-btn" onclick="setClub(41, 8000, -5, 75)">9I</button>
+      <button class="club-btn" onclick="setClub(54, 9500, -6, 65)">SW</button>
+    </div>
     <div class="slider-grid">
       <div class="slider-box">
         <div class="slider-label">Club Spd <span class="slider-val" id="clubSpeedVal">100</span></div>
@@ -234,7 +255,7 @@ function showView(viewId, btn) {
   if(viewId !== 'live') renderAnalytics();
 }
 
-// UPDATED CSV PARSER FOR FALCON HEADERS
+// FALCON CSV PARSER
 document.getElementById('csvInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   const reader = new FileReader();
@@ -264,6 +285,14 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
   };
   reader.readAsText(file);
 });
+
+function setClub(launch, spin, aoa, speed) {
+  document.getElementById('launchAngle').value = launch;
+  document.getElementById('spinRate').value = spin;
+  document.getElementById('aoa').value = aoa;
+  document.getElementById('clubSpeed').value = speed;
+  document.querySelectorAll('input').forEach(i => i.dispatchEvent(new Event('input')));
+}
 
 function renderAnalytics() {
   renderBagAudit();
@@ -326,7 +355,6 @@ function renderImpact() {
   sessionData.slice(-25).forEach(s => {
     const ix = parseFloat(s.ImpactPointX || 0);
     const iy = parseFloat(s.ImpactPointY || 0);
-    // 1mm = approx 1.5% of container width/height
     const x = 50 + (ix * 1.5); 
     const y = 45 - (iy * 1.8); 
     const dot = document.createElement('div');
@@ -341,19 +369,14 @@ function renderImpact() {
 function syncLastShot() {
   if(sessionData.length === 0) return alert("No CSV data loaded");
   const last = sessionData[sessionData.length - 1];
-  
   const bSpd = parseFloat(last.BallSpeed);
   const defaultSmash = 1.45; 
-  
   document.getElementById('smashFactor').value = defaultSmash;
   document.getElementById('clubSpeed').value = (bSpd / defaultSmash).toFixed(1);
   document.getElementById('launchAngle').value = parseFloat(last.LaunchAngle);
   document.getElementById('spinRate').value = parseFloat(last.TotalSpin);
   document.getElementById('aoa').value = parseFloat(last.AoA);
-
-  // Trigger UI updates
   document.querySelectorAll('input').forEach(i => i.dispatchEvent(new Event('input')));
-  alert("Synced " + last.Club + ": " + bSpd + "mph Ball Speed");
 }
 
 function updatePhysics() {
@@ -407,4 +430,5 @@ updatePhysics();
 </script>
 </body>
 </html>
+
 
