@@ -65,7 +65,7 @@
   .view-section { display: none; }
   .view-section.active { display: block; }
 
-  /* HUD - Grid changed to 2 columns for row 3 to maintain symmetry after AoA removal */
+  /* HUD */
   .lab-hud {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -162,7 +162,7 @@
     <div class="hud-stat"><div class="hud-label">Apex</div><div class="hud-val"><span id="valApex">0</span><span class="hud-unit">yd</span></div></div>
     <div class="hud-stat"><div class="hud-label">Total</div><div class="hud-val"><span id="valTotal">0</span><span class="hud-unit">yd</span></div></div>
     <div class="hud-stat"><div class="hud-label">Launch</div><div class="hud-val"><span id="valLaunch">0</span><span class="hud-unit">°</span></div></div>
-    </div>
+  </div>
 
   <svg id="course" viewBox="0 0 400 200">
     <rect width="400" height="185" fill="#0a1f16" opacity="0.8"/>
@@ -174,11 +174,11 @@
 
   <div class="controls">
     <div class="club-row">
-      <button class="club-btn" onclick="setClub(10.5, 2400, 2, 110)">DR</button>
-      <button class="club-btn" onclick="setClub(24, 5000, -2, 90)">5I</button>
-      <button class="club-btn" onclick="setClub(32, 6500, -4, 82)">7I</button>
-      <button class="club-btn" onclick="setClub(41, 8000, -5, 75)">9I</button>
-      <button class="club-btn" onclick="setClub(54, 9500, -6, 65)">SW</button>
+      <button class="club-btn" onclick="setClub(10.5, 2400, 2, 110, 'DR')">DR</button>
+      <button class="club-btn" onclick="setClub(24, 5000, -2, 90, '5I')">5I</button>
+      <button class="club-btn" onclick="setClub(32, 6500, -4, 82, '7I')">7I</button>
+      <button class="club-btn" onclick="setClub(41, 8000, -5, 75, '9I')">9I</button>
+      <button class="club-btn" onclick="setClub(54, 9500, -6, 65, 'SW')">SW</button>
     </div>
     <div class="slider-grid">
       <div class="slider-box">
@@ -204,7 +204,7 @@
     </div>
   </div>
   <div class="btn-row">
-    <button class="btn btn-sync" onclick="syncNextShot()">See Next Shot</button>
+    <button class="btn btn-sync" onclick="syncNextShot()">Next CSV Shot</button>
     <button class="btn btn-sync" style="background:var(--grass); color:white;" onclick="freezeArc()">Freeze</button>
     <button class="btn btn-reset" onclick="resetLab()">Clear</button>
   </div>
@@ -246,7 +246,7 @@ const CONFIG = {
 
 let sessionData = [];
 let currentPathData = "";
-let currentShotIndex = -1; // Track which shot we are viewing
+let currentShotIndex = -1;
 
 function showView(viewId, btn) {
   document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
@@ -256,7 +256,6 @@ function showView(viewId, btn) {
   if(viewId !== 'live') renderAnalytics();
 }
 
-// FALCON CSV PARSER
 document.getElementById('csvInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   const reader = new FileReader();
@@ -282,20 +281,20 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
       return obj;
     });
     
-    // Reset index to the last shot whenever a new file is uploaded
     currentShotIndex = sessionData.length - 1;
-    
     alert("Loaded " + sessionData.length + " shots from Falcon CSV");
     renderAnalytics();
   };
   reader.readAsText(file);
 });
 
-function setClub(launch, spin, aoa, speed) {
+// Updated to accept and display the club name
+function setClub(launch, spin, aoa, speed, clubId) {
   document.getElementById('launchAngle').value = launch;
   document.getElementById('spinRate').value = spin;
   document.getElementById('aoa').value = aoa;
   document.getElementById('clubSpeed').value = speed;
+  document.getElementById('syncClubName').textContent = clubId;
   document.querySelectorAll('input').forEach(i => i.dispatchEvent(new Event('input')));
 }
 
@@ -373,8 +372,6 @@ function renderImpact() {
 
 function syncNextShot() {
   if(sessionData.length === 0) return alert("No CSV data loaded");
-  
-  // Logic: Cycle in reverse order. If at first shot (0), reset to last shot (length-1)
   if (currentShotIndex < 0) currentShotIndex = sessionData.length - 1;
 
   const currentShot = sessionData[currentShotIndex];
@@ -386,11 +383,12 @@ function syncNextShot() {
   document.getElementById('launchAngle').value = parseFloat(currentShot.LaunchAngle);
   document.getElementById('spinRate').value = parseFloat(currentShot.TotalSpin);
   document.getElementById('aoa').value = parseFloat(currentShot.AoA);
+  
+  // Updates HUD with the Club ID from the CSV
   document.getElementById('syncClubName').textContent = currentShot.Club || "UNK";
   
   document.querySelectorAll('input').forEach(i => i.dispatchEvent(new Event('input')));
 
-  // Prepare for next click: decrement index. If < 0, loop back to start (the last shot)
   currentShotIndex--;
   if (currentShotIndex < 0) {
     currentShotIndex = sessionData.length - 1;
@@ -399,11 +397,9 @@ function syncNextShot() {
 
 function updatePhysics() {
   const v0 = (document.getElementById('clubSpeed').value * document.getElementById('smashFactor').value) * CONFIG.MPH_TO_MS;
-  
   const baseLaunch = parseFloat(document.getElementById('launchAngle').value);
   const aoaEffect = parseFloat(document.getElementById('aoa').value);
   const launchDeg = baseLaunch + (aoaEffect * 0.5); 
-  
   const backspin = parseFloat(document.getElementById('spinRate').value);
   const rad = launchDeg * Math.PI / 180;
   let vx = v0 * Math.cos(rad), vy = v0 * Math.sin(rad), x = 0, y = 0, apex = 0;
@@ -430,7 +426,6 @@ function updatePhysics() {
   document.getElementById('valApex').textContent = Math.round(apex * CONFIG.YARDS_PER_METER);
   document.getElementById('valLaunch').textContent = launchDeg.toFixed(1);
   document.getElementById('valSmash').textContent = document.getElementById('smashFactor').value;
-  // AoA HUD value update removed
 }
 
 function freezeArc() {
@@ -452,6 +447,7 @@ updatePhysics();
 </script>
 </body>
 </html>
+
 
 
 
