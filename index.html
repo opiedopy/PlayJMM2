@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <link rel="apple-touch-icon" href="JMM-Lab.png">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-touch-icon" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>JMM2b - Falcon Lab</title>
 <style>
@@ -159,7 +159,7 @@
     <div class="hud-stat"><div class="hud-label">Club</div><div class="hud-val" id="syncClubName">---</div></div>
     <div class="hud-stat"><div class="hud-label">Carry</div><div class="hud-val"><span id="valCarry">0</span><span class="hud-unit">yd</span></div></div>
     <div class="hud-stat"><div class="hud-label">Smash</div><div class="hud-val"><span id="valSmash">1.45</span></div></div>
-    <div class="hud-stat"><div class="hud-label">Apex</div><div class="hud-val"><span id="valApex">0</span><span class="hud-unit">yd</span></div></div>
+    <div class="hud-stat"><div class="hud-label">Apex</div><div class="hud-val"><span id="valApex">0</span><span class="hud-unit">ft</span></div></div>
     <div class="hud-stat"><div class="hud-label">Total</div><div class="hud-val"><span id="valTotal">0</span><span class="hud-unit">yd</span></div></div>
     <div class="hud-stat"><div class="hud-label">Launch</div><div class="hud-val"><span id="valLaunch">0</span><span class="hud-unit">°</span></div></div>
   </div>
@@ -221,6 +221,7 @@
   <h3 style="font-size:0.8rem; color:var(--brass); margin-bottom:10px;">Distance Consistency</h3>
   <svg id="dispersionMap" viewBox="0 0 400 100" style="background:rgba(0,0,0,0.4); border:1px solid var(--brass); border-radius:8px;">
     <line x1="20" y1="50" x2="380" y2="50" stroke="rgba(212,175,55,0.3)" />
+    <g id="dispersionLabels"></g>
     <g id="dispersionDots"></g>
   </svg>
   <div id="dispersionStats" style="font-size:0.65rem; margin-top:10px; color: var(--brass);"></div>
@@ -288,7 +289,6 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
   reader.readAsText(file);
 });
 
-// Updated to accept and display the club name
 function setClub(launch, spin, aoa, speed, clubId) {
   document.getElementById('launchAngle').value = launch;
   document.getElementById('spinRate').value = spin;
@@ -336,21 +336,48 @@ function renderBagAudit() {
 
 function renderDispersion() {
   const container = document.getElementById('dispersionDots');
+  const labels = document.getElementById('dispersionLabels');
   container.innerHTML = "";
+  labels.innerHTML = "";
+
+  // X-Axis Labels: 20 to 350 in 40yd increments
+  const startYd = 20;
+  const endYd = 350;
+  const step = 40;
+
+  for(let yd = startYd; yd <= endYd; yd += step) {
+    const x = 20 + ((yd - startYd) / (endYd - startYd)) * 360;
+    
+    // Tick mark
+    const tick = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    tick.setAttribute("x1", x); tick.setAttribute("y1", 47); tick.setAttribute("x2", x); tick.setAttribute("y2", 53);
+    tick.setAttribute("stroke", "var(--brass)"); tick.setAttribute("stroke-width", "1");
+    labels.appendChild(tick);
+
+    // Text label
+    const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    txt.setAttribute("x", x); txt.setAttribute("y", 65);
+    txt.setAttribute("fill", "var(--brass)"); txt.setAttribute("font-size", "7");
+    txt.setAttribute("text-anchor", "middle");
+    txt.textContent = yd;
+    labels.appendChild(txt);
+  }
+
   if(sessionData.length === 0) return;
-  const carries = sessionData.map(s => parseFloat(s.Carry));
-  const min = Math.min(...carries);
-  const max = Math.max(...carries);
-  const range = max - min || 1;
 
   sessionData.forEach(s => {
-    const x = 20 + ((parseFloat(s.Carry) - min) / range) * 360;
-    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    circle.setAttribute("cx", x); circle.setAttribute("cy", 50); circle.setAttribute("r", 4);
-    circle.setAttribute("fill", "var(--brass)"); circle.setAttribute("opacity", "0.6");
-    container.appendChild(circle);
+    const carry = parseFloat(s.Carry);
+    if (carry >= startYd && carry <= endYd) {
+        const x = 20 + ((carry - startYd) / (endYd - startYd)) * 360;
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x); circle.setAttribute("cy", 50); circle.setAttribute("r", 4);
+        circle.setAttribute("fill", "var(--brass)"); circle.setAttribute("opacity", "0.6");
+        container.appendChild(circle);
+    }
   });
-  document.getElementById('dispersionStats').innerText = `Session Range: ${Math.round(min)} - ${Math.round(max)} yds`;
+  
+  const carries = sessionData.map(s => parseFloat(s.Carry));
+  document.getElementById('dispersionStats').innerText = `Session Range: ${Math.round(Math.min(...carries))} - ${Math.round(Math.max(...carries))} yds`;
 }
 
 function renderImpact() {
@@ -383,8 +410,6 @@ function syncNextShot() {
   document.getElementById('launchAngle').value = parseFloat(currentShot.LaunchAngle);
   document.getElementById('spinRate').value = parseFloat(currentShot.TotalSpin);
   document.getElementById('aoa').value = parseFloat(currentShot.AoA);
-  
-  // Updates HUD with the Club ID from the CSV
   document.getElementById('syncClubName').textContent = currentShot.Club || "UNK";
   
   document.querySelectorAll('input').forEach(i => i.dispatchEvent(new Event('input')));
@@ -423,7 +448,11 @@ function updatePhysics() {
   document.getElementById('livePath').setAttribute('d', d);
   document.getElementById('valCarry').textContent = Math.round(carry);
   document.getElementById('valTotal').textContent = Math.round(carry * 1.08);
-  document.getElementById('valApex').textContent = Math.round(apex * CONFIG.YARDS_PER_METER);
+  
+  // Physics keeps apex in yards (apex * YARDS_PER_METER), Display shows feet (* 3)
+  const apexYards = apex * CONFIG.YARDS_PER_METER;
+  document.getElementById('valApex').textContent = Math.round(apexYards * 3);
+  
   document.getElementById('valLaunch').textContent = launchDeg.toFixed(1);
   document.getElementById('valSmash').textContent = document.getElementById('smashFactor').value;
 }
@@ -447,6 +476,7 @@ updatePhysics();
 </script>
 </body>
 </html>
+
 
 
 
