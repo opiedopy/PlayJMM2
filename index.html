@@ -65,7 +65,7 @@
   .view-section { display: none; }
   .view-section.active { display: block; }
 
-  /* HUD */
+  /* HUD - Grid changed to 2 columns for row 3 to maintain symmetry after AoA removal */
   .lab-hud {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -162,8 +162,7 @@
     <div class="hud-stat"><div class="hud-label">Apex</div><div class="hud-val"><span id="valApex">0</span><span class="hud-unit">yd</span></div></div>
     <div class="hud-stat"><div class="hud-label">Total</div><div class="hud-val"><span id="valTotal">0</span><span class="hud-unit">yd</span></div></div>
     <div class="hud-stat"><div class="hud-label">Launch</div><div class="hud-val"><span id="valLaunch">0</span><span class="hud-unit">°</span></div></div>
-    <div class="hud-stat"><div class="hud-label">AoA</div><div class="hud-val"><span id="valAoA">0</span><span class="hud-unit">°</span></div></div>
-  </div>
+    </div>
 
   <svg id="course" viewBox="0 0 400 200">
     <rect width="400" height="185" fill="#0a1f16" opacity="0.8"/>
@@ -205,7 +204,7 @@
     </div>
   </div>
   <div class="btn-row">
-    <button class="btn btn-sync" onclick="syncLastShot()">Sync Last Shot</button>
+    <button class="btn btn-sync" onclick="syncNextShot()">See Next Shot</button>
     <button class="btn btn-sync" style="background:var(--grass); color:white;" onclick="freezeArc()">Freeze</button>
     <button class="btn btn-reset" onclick="resetLab()">Clear</button>
   </div>
@@ -247,6 +246,7 @@ const CONFIG = {
 
 let sessionData = [];
 let currentPathData = "";
+let currentShotIndex = -1; // Track which shot we are viewing
 
 function showView(viewId, btn) {
   document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
@@ -281,6 +281,10 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
       });
       return obj;
     });
+    
+    // Reset index to the last shot whenever a new file is uploaded
+    currentShotIndex = sessionData.length - 1;
+    
     alert("Loaded " + sessionData.length + " shots from Falcon CSV");
     renderAnalytics();
   };
@@ -367,21 +371,30 @@ function renderImpact() {
   });
 }
 
-function syncLastShot() {
+function syncNextShot() {
   if(sessionData.length === 0) return alert("No CSV data loaded");
-  const last = sessionData[sessionData.length - 1];
-  const bSpd = parseFloat(last.BallSpeed);
+  
+  // Logic: Cycle in reverse order. If at first shot (0), reset to last shot (length-1)
+  if (currentShotIndex < 0) currentShotIndex = sessionData.length - 1;
+
+  const currentShot = sessionData[currentShotIndex];
+  const bSpd = parseFloat(currentShot.BallSpeed);
   const defaultSmash = 1.45; 
+  
   document.getElementById('smashFactor').value = defaultSmash;
   document.getElementById('clubSpeed').value = (bSpd / defaultSmash).toFixed(1);
-  document.getElementById('launchAngle').value = parseFloat(last.LaunchAngle);
-  document.getElementById('spinRate').value = parseFloat(last.TotalSpin);
-  document.getElementById('aoa').value = parseFloat(last.AoA);
-  
-  // Captures and displays the club ID from the CSV row
-  document.getElementById('syncClubName').textContent = last.Club || "UNK";
+  document.getElementById('launchAngle').value = parseFloat(currentShot.LaunchAngle);
+  document.getElementById('spinRate').value = parseFloat(currentShot.TotalSpin);
+  document.getElementById('aoa').value = parseFloat(currentShot.AoA);
+  document.getElementById('syncClubName').textContent = currentShot.Club || "UNK";
   
   document.querySelectorAll('input').forEach(i => i.dispatchEvent(new Event('input')));
+
+  // Prepare for next click: decrement index. If < 0, loop back to start (the last shot)
+  currentShotIndex--;
+  if (currentShotIndex < 0) {
+    currentShotIndex = sessionData.length - 1;
+  }
 }
 
 function updatePhysics() {
@@ -417,7 +430,7 @@ function updatePhysics() {
   document.getElementById('valApex').textContent = Math.round(apex * CONFIG.YARDS_PER_METER);
   document.getElementById('valLaunch').textContent = launchDeg.toFixed(1);
   document.getElementById('valSmash').textContent = document.getElementById('smashFactor').value;
-  document.getElementById('valAoA').textContent = document.getElementById('aoa').value;
+  // AoA HUD value update removed
 }
 
 function freezeArc() {
@@ -439,6 +452,7 @@ updatePhysics();
 </script>
 </body>
 </html>
+
 
 
 
