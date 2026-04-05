@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JMM2b</title>
+<title>JMM2b - Falcon Lab</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Montserrat:wght@400;600&display=swap');
 
@@ -71,11 +71,6 @@
     grid-template-columns: repeat(3, 1fr);
     gap: 6px;
     margin-bottom: 12px;
-  <div class="hud-stat">
-  <div class="hud-label">Club</div>
-  <div class="hud-val" id="syncClubName">---</div>
-</div>
-
   }
   .hud-stat { background: rgba(0, 0, 0, 0.7); border: 1px solid var(--brass); border-radius: 4px; padding: 8px 2px; text-align: center; }
   .hud-label { font-size: 0.5rem; color: var(--brass); text-transform: uppercase; margin-bottom: 2px; }
@@ -161,6 +156,7 @@
 
 <section id="view-live" class="view-section active">
   <div class="lab-hud">
+    <div class="hud-stat"><div class="hud-label">Club</div><div class="hud-val" id="syncClubName">---</div></div>
     <div class="hud-stat"><div class="hud-label">Carry</div><div class="hud-val"><span id="valCarry">0</span><span class="hud-unit">yd</span></div></div>
     <div class="hud-stat"><div class="hud-label">Smash</div><div class="hud-val"><span id="valSmash">1.45</span></div></div>
     <div class="hud-stat"><div class="hud-label">Apex</div><div class="hud-val"><span id="valApex">0</span><span class="hud-unit">yd</span></div></div>
@@ -381,15 +377,16 @@ function syncLastShot() {
   document.getElementById('launchAngle').value = parseFloat(last.LaunchAngle);
   document.getElementById('spinRate').value = parseFloat(last.TotalSpin);
   document.getElementById('aoa').value = parseFloat(last.AoA);
+  
+  // Captures and displays the club ID from the CSV row
+  document.getElementById('syncClubName').textContent = last.Club || "UNK";
+  
   document.querySelectorAll('input').forEach(i => i.dispatchEvent(new Event('input')));
-document.getElementById('syncClubName').textContent = last.Club || "UNK";
-
 }
 
 function updatePhysics() {
   const v0 = (document.getElementById('clubSpeed').value * document.getElementById('smashFactor').value) * CONFIG.MPH_TO_MS;
   
-  // MODIFIED: AoA now influences the Launch Angle
   const baseLaunch = parseFloat(document.getElementById('launchAngle').value);
   const aoaEffect = parseFloat(document.getElementById('aoa').value);
   const launchDeg = baseLaunch + (aoaEffect * 0.5); 
@@ -442,6 +439,7 @@ updatePhysics();
 </script>
 </body>
 </html>
+
 
 
 
