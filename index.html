@@ -71,6 +71,11 @@
     grid-template-columns: repeat(3, 1fr);
     gap: 6px;
     margin-bottom: 12px;
+  <div class="hud-stat">
+  <div class="hud-label">Club</div>
+  <div class="hud-val" id="syncClubName">---</div>
+</div>
+
   }
   .hud-stat { background: rgba(0, 0, 0, 0.7); border: 1px solid var(--brass); border-radius: 4px; padding: 8px 2px; text-align: center; }
   .hud-label { font-size: 0.5rem; color: var(--brass); text-transform: uppercase; margin-bottom: 2px; }
@@ -377,6 +382,8 @@ function syncLastShot() {
   document.getElementById('spinRate').value = parseFloat(last.TotalSpin);
   document.getElementById('aoa').value = parseFloat(last.AoA);
   document.querySelectorAll('input').forEach(i => i.dispatchEvent(new Event('input')));
+document.getElementById('syncClubName').textContent = last.Club || "UNK";
+
 }
 
 function updatePhysics() {
