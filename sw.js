@@ -1,4 +1,4 @@
-const CACHE_NAME = 'falcon-lab-v2';
+const CACHE_NAME = 'falcon-lab-v3';
 const ASSETS_TO_CACHE = [
   'index.html',
   'bcc.png',
