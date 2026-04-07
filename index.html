@@ -7,7 +7,7 @@
 <meta name="apple-touch-icon" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="manifest" href="manifest.json">
-<title>JMM2j - Lab</title>
+<title>JMM2k - Lab</title>
 <style>
   :root {
     --forest: #1b4332;
@@ -73,7 +73,7 @@
 </head>
 <body>
 
-<h2>⛳ JMM2j</h2>
+<h2>⛳ JMM2k</h2>
 <div class="subtitle">Predictive Lab • Universal Edition</div>
 
 <nav class="nav-tabs">
@@ -177,7 +177,6 @@
 <script>
 const CONFIG = { BALL_MASS_KG: 0.04593, BALL_AREA_M2: 0.001432, GRAVITY: 9.8, DT: 0.015, YARDS_PER_METER: 1.09361, MPH_TO_MS: 0.44704, SCALE_X: 0.9, SCALE_Y: 1.7 };
 
-// UNIVERSAL FORESIGHT DICTIONARY
 const FORESIGHT_MAP = {
   BallSpeed: ['ball speed', 'ballspeed', 'b.spd', 'v.ball'],
   TotalSpin: ['total spin', 'spin rate', 'backspin', 'spin'],
@@ -201,11 +200,12 @@ function normalizeHeader(raw) {
   return clean;
 }
 
-// FUZZY NUMERIC PARSER (Strips non-numeric garbage like "mph" from values)
+// FIXED FUZZY NUMERIC PARSER (Now keeps decimals)
 function fParse(val) {
-  if (!val) return 0;
-  const cleaned = val.toString().replace(/[^-0.9.]/g, '');
-  return parseFloat(cleaned) || 0;
+  if (val === undefined || val === null || val === "") return 0;
+  const cleaned = val.toString().replace(/[^-0-9.]/g, '');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
 }
 
 function showView(viewId, btn) { 
@@ -216,17 +216,14 @@ function showView(viewId, btn) {
   if(viewId !== 'live') renderAnalytics(); 
 }
 
-// UNIVERSAL CSV LOADER
 document.getElementById('csvInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   const reader = new FileReader();
   reader.onload = function(event) {
     const lines = event.target.result.split('\n');
     if (lines.length < 2) return;
-
     const rawHeaders = lines[0].split(',');
     const normalizedHeaders = rawHeaders.map(h => normalizeHeader(h));
-
     sessionData = lines.slice(1)
       .filter(l => l.trim().length > 5)
       .map(line => {
@@ -237,7 +234,6 @@ document.getElementById('csvInput').addEventListener('change', function(e) {
         });
         return obj;
       });
-
     currentShotIndex = sessionData.length - 1;
     alert(`Universal Sync: Loaded ${sessionData.length} shots.`);
     renderAnalytics();
@@ -345,18 +341,24 @@ function syncNextShot() {
 }
 
 function updatePhysics() {
-  const v0 = (fParse(document.getElementById('clubSpeed').value) * fParse(document.getElementById('smashFactor').value)) * CONFIG.MPH_TO_MS;
+  // Use fParse to ensure all slider values are cleaned before calculation
+  const cSpeed = fParse(document.getElementById('clubSpeed').value);
+  const sFactor = fParse(document.getElementById('smashFactor').value);
+  const v0 = (cSpeed * sFactor) * CONFIG.MPH_TO_MS;
+  
   const baseLaunch = fParse(document.getElementById('launchAngle').value);
   const aoaEffect = fParse(document.getElementById('aoa').value);
   const launchDeg = baseLaunch + (aoaEffect * 0.5);
   const backspin = fParse(document.getElementById('spinRate').value);
   const rad = launchDeg * Math.PI / 180;
+  
   let vx = v0 * Math.cos(rad), vy = v0 * Math.sin(rad), x = 0, y = 0, apex = 0;
   const pts = [];
   for (let i = 0; i < 1500; i++) {
     pts.push({x, y});
     if (y > apex) apex = y;
     let v = Math.sqrt(vx*vx + vy*vy);
+    if (v < 0.1) break; // Avoid division by zero
     let drag = 0.5 * 1.15 * v * v * 0.24 * CONFIG.BALL_AREA_M2;
     let lift = 0.5 * 1.15 * v * v * (backspin/2800 * 0.18) * CONFIG.BALL_AREA_M2;
     vx -= (drag * (vx/v) + lift * (vy/v)) / CONFIG.BALL_MASS_KG * CONFIG.DT;
@@ -364,7 +366,8 @@ function updatePhysics() {
     x += vx * CONFIG.DT; y += vy * CONFIG.DT;
     if (y < 0) break;
   }
-  const carry = x * CONFIG.YARDS_PER_METER;
+  
+  const carry = x * CONFIG.YARDS_PER_YARDS = x * CONFIG.YARDS_PER_METER;
   const d = pts.map((p, i) => `${i===0?'M':'L'}${11 + p.x*CONFIG.YARDS_PER_METER*CONFIG.SCALE_X},${185 - p.y*CONFIG.YARDS_PER_METER*CONFIG.SCALE_Y}`).join(' ');
   currentPathData = d;
   document.getElementById('livePath').setAttribute('d', d);
@@ -372,7 +375,7 @@ function updatePhysics() {
   document.getElementById('valTotal').textContent = Math.round(carry * 1.08);
   document.getElementById('valApex').textContent = Math.round(apex * CONFIG.YARDS_PER_METER * 3);
   document.getElementById('valLaunch').textContent = launchDeg.toFixed(1);
-  document.getElementById('valSmash').textContent = document.getElementById('smashFactor').value;
+  document.getElementById('valSmash').textContent = sFactor.toFixed(2);
 }
 
 function freezeArc() {
@@ -388,7 +391,10 @@ function resetLab() { document.getElementById('ghostLayer').innerHTML = ""; }
 
 document.querySelectorAll('input').forEach(i => i.addEventListener('input', () => {
   const valEl = document.getElementById(i.id + 'Val');
-  if(valEl) valEl.textContent = i.value + (i.id === 'launchAngle' || i.id === 'aoa' ? '°' : '');
+  if(valEl) {
+    let suffix = (i.id === 'launchAngle' || i.id === 'aoa' ? '°' : '');
+    valEl.textContent = i.value + suffix;
+  }
   updatePhysics();
 }));
 
@@ -411,6 +417,7 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+
 
 
 
