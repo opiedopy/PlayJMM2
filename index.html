@@ -7,10 +7,8 @@
 <meta name="apple-touch-icon" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="manifest" href="manifest.json">
-<title>JMM2h - Lab</title>
+<title>JMM2j - Lab</title>
 <style>
-  /* Removed Google Fonts Import for Offline Reliability */
-
   :root {
     --forest: #1b4332;
     --grass: #2d6a4f;
@@ -23,7 +21,6 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    /* High-readability system font stack */
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--forest);
     background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), url('bcc.png');
@@ -37,8 +34,6 @@
   }
 
   h2 { font-family: 'Georgia', serif; font-size: 1.7rem; color: var(--brass); text-align: center; margin-bottom: 2px; }
-  
-  /* ... REST OF YOUR CSS REMAINS UNCHANGED ... */
   .subtitle { text-align: center; font-size: 0.6rem; color: var(--brass); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; }
   .nav-tabs { display: flex; gap: 4px; margin-bottom: 15px; background: rgba(0,0,0,0.4); padding: 4px; border-radius: 8px; border: 1px solid rgba(212, 175, 55, 0.3); }
   .nav-btn { flex: 1; padding: 10px 2px; background: transparent; border: none; color: var(--parchment); font-size: 0.65rem; font-weight: 600; text-transform: uppercase; cursor: pointer; border-radius: 4px; transition: 0.2s; }
@@ -78,8 +73,8 @@
 </head>
 <body>
 
-<h2>⛳ JMM2h</h2>
-<div class="subtitle">Predictive Lab • Falcon Edition</div>
+<h2>⛳ JMM2j</h2>
+<div class="subtitle">Predictive Lab • Universal Edition</div>
 
 <nav class="nav-tabs">
   <button class="nav-btn active" onclick="showView('live', this)">Live Lab</button>
@@ -90,7 +85,7 @@
 
 <div class="file-input-wrapper">
   <input type="file" id="csvInput" accept=".csv">
-  <div style="font-size: 0.55rem; margin-top: 5px; opacity: 0.7;">Upload Falcon Shots.csv</div>
+  <div style="font-size: 0.55rem; margin-top: 5px; opacity: 0.7;">Upload Foresight CSV</div>
 </div>
 
 <section id="view-live" class="view-section active">
@@ -180,36 +175,232 @@
 </section>
 
 <script>
-/* ... ALL YOUR ORIGINAL PHYSICS AND APP LOGIC REMAINS HERE ... */
 const CONFIG = { BALL_MASS_KG: 0.04593, BALL_AREA_M2: 0.001432, GRAVITY: 9.8, DT: 0.015, YARDS_PER_METER: 1.09361, MPH_TO_MS: 0.44704, SCALE_X: 0.9, SCALE_Y: 1.7 };
+
+// UNIVERSAL FORESIGHT DICTIONARY
+const FORESIGHT_MAP = {
+  BallSpeed: ['ball speed', 'ballspeed', 'b.spd', 'v.ball'],
+  TotalSpin: ['total spin', 'spin rate', 'backspin', 'spin'],
+  LaunchAngle: ['launch angle', 'v.launch', 'launch ang', 'launcha'],
+  Carry: ['carry', 'carry distance', 'dist.c'],
+  AoA: ['aoa', 'angle of attack', 'attack angle', 'aa'],
+  Club: ['club', 'club name', 'equipment'],
+  ImpactPointX: ['impact x', 'h.impact', 'strike x', 'impactx'],
+  ImpactPointY: ['impact y', 'v.impact', 'strike y', 'impacty']
+};
+
 let sessionData = [];
 let currentPathData = "";
 let currentShotIndex = -1;
 
-function showView(viewId, btn) { document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active')); document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active')); document.getElementById('view-' + viewId).classList.add('active'); btn.classList.add('active'); if(viewId !== 'live') renderAnalytics(); }
-document.getElementById('csvInput').addEventListener('change', function(e) { const file = e.target.files[0]; const reader = new FileReader(); reader.onload = function(event) { const text = event.target.result; const lines = text.split('\n'); const rawHeaders = lines[0].split(',').map(h => h.trim()); sessionData = lines.slice(1).filter(l => l.length > 5).map(line => { const vals = line.split(','); let obj = {}; rawHeaders.forEach((h, i) => { let cleanKey = h; if (h.includes("Ball Speed")) cleanKey = "BallSpeed"; if (h.includes("Total Spin")) cleanKey = "TotalSpin"; if (h.includes("Launch Angle")) cleanKey = "LaunchAngle"; if (h.includes("Carry")) cleanKey = "Carry"; if (h.includes("AoA")) cleanKey = "AoA"; if (h.includes("Impact X")) cleanKey = "ImpactPointX"; if (h.includes("Impact Y")) cleanKey = "ImpactPointY"; obj[cleanKey] = vals[i]; }); return obj; }); currentShotIndex = sessionData.length - 1; alert("Loaded " + sessionData.length + " shots from Falcon CSV"); renderAnalytics(); }; reader.readAsText(file); });
-function setClub(launch, spin, aoa, speed, clubId) { document.getElementById('launchAngle').value = launch; document.getElementById('spinRate').value = spin; document.getElementById('aoa').value = aoa; document.getElementById('clubSpeed').value = speed; document.getElementById('syncClubName').textContent = clubId; document.querySelectorAll('input').forEach(i => i.dispatchEvent(new Event('input'))); }
+function normalizeHeader(raw) {
+  const clean = raw.toLowerCase().trim();
+  for (const [standardKey, variations] of Object.entries(FORESIGHT_MAP)) {
+    if (variations.some(v => clean.includes(v))) return standardKey;
+  }
+  return clean;
+}
+
+// FUZZY NUMERIC PARSER (Strips non-numeric garbage like "mph" from values)
+function fParse(val) {
+  if (!val) return 0;
+  const cleaned = val.toString().replace(/[^-0.9.]/g, '');
+  return parseFloat(cleaned) || 0;
+}
+
+function showView(viewId, btn) { 
+  document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active')); 
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active')); 
+  document.getElementById('view-' + viewId).classList.add('active'); 
+  btn.classList.add('active'); 
+  if(viewId !== 'live') renderAnalytics(); 
+}
+
+// UNIVERSAL CSV LOADER
+document.getElementById('csvInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  const reader = new FileReader();
+  reader.onload = function(event) {
+    const lines = event.target.result.split('\n');
+    if (lines.length < 2) return;
+
+    const rawHeaders = lines[0].split(',');
+    const normalizedHeaders = rawHeaders.map(h => normalizeHeader(h));
+
+    sessionData = lines.slice(1)
+      .filter(l => l.trim().length > 5)
+      .map(line => {
+        const vals = line.split(',');
+        let obj = {};
+        normalizedHeaders.forEach((key, i) => {
+          obj[key] = vals[i] ? vals[i].replace(/['"]+/g, '').trim() : "";
+        });
+        return obj;
+      });
+
+    currentShotIndex = sessionData.length - 1;
+    alert(`Universal Sync: Loaded ${sessionData.length} shots.`);
+    renderAnalytics();
+  };
+  reader.readAsText(file);
+});
+
+function setClub(launch, spin, aoa, speed, clubId) { 
+  document.getElementById('launchAngle').value = launch; 
+  document.getElementById('spinRate').value = spin; 
+  document.getElementById('aoa').value = aoa; 
+  document.getElementById('clubSpeed').value = speed; 
+  document.getElementById('syncClubName').textContent = clubId; 
+  document.querySelectorAll('input').forEach(i => i.dispatchEvent(new Event('input'))); 
+}
+
 function renderAnalytics() { renderBagAudit(); renderDispersion(); renderImpact(); }
-function renderBagAudit() { const groups = {}; sessionData.forEach(s => { const club = s.Club || "Unknown"; if(!groups[club]) groups[club] = []; groups[club].push(parseFloat(s.Carry || 0)); }); let html = `<table class="data-table"><tr><th>Club</th><th>Avg</th><th>Min</th><th>Max</th><th>SD</th></tr>`; const sortedClubs = Object.keys(groups).sort((a,b) => { const avgA = groups[a].reduce((p,c)=>p+c,0)/groups[a].length; const avgB = groups[b].reduce((p,c)=>p+c,0)/groups[b].length; return avgB - avgA; }); let lastAvg = null; sortedClubs.forEach(c => { const vals = groups[c]; const avg = vals.reduce((a,b) => a+b, 0) / vals.length; const min = Math.min(...vals); const max = Math.max(...vals); const sd = Math.sqrt(vals.map(x => Math.pow(x - avg, 2)).reduce((a,b) => a+b)/vals.length); let gapClass = (lastAvg && Math.abs(lastAvg - avg) < 9) ? "gap-alert" : ""; html += `<tr><td>${c}</td><td class="${gapClass}">${Math.round(avg)}</td><td>${Math.round(min)}</td><td>${Math.round(max)}</td><td>${sd.toFixed(1)}</td></tr>`; lastAvg = avg; }); document.getElementById('auditContainer').innerHTML = html + `</table>`; }
-function renderDispersion() { const container = document.getElementById('dispersionDots'); const labels = document.getElementById('dispersionLabels'); container.innerHTML = ""; labels.innerHTML = ""; const startYd = 20; const endYd = 350; const step = 40; for(let yd = startYd; yd <= endYd; yd += step) { const x = 20 + ((yd - startYd) / (endYd - startYd)) * 360; const tick = document.createElementNS("http://www.w3.org/2000/svg", "line"); tick.setAttribute("x1", x); tick.setAttribute("y1", 47); tick.setAttribute("x2", x); tick.setAttribute("y2", 53); tick.setAttribute("stroke", "var(--brass)"); tick.setAttribute("stroke-width", "1"); labels.appendChild(tick); const txt = document.createElementNS("http://www.w3.org/2000/svg", "text"); txt.setAttribute("x", x); txt.setAttribute("y", 65); txt.setAttribute("fill", "var(--brass)"); txt.setAttribute("font-size", "7"); txt.setAttribute("text-anchor", "middle"); txt.textContent = yd; labels.appendChild(txt); } if(sessionData.length === 0) return; sessionData.forEach(s => { const carry = parseFloat(s.Carry); if (carry >= startYd && carry <= endYd) { const x = 20 + ((carry - startYd) / (endYd - startYd)) * 360; const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle"); circle.setAttribute("cx", x); circle.setAttribute("cy", 50); circle.setAttribute("r", 4); circle.setAttribute("fill", "var(--brass)"); circle.setAttribute("opacity", "0.6"); container.appendChild(circle); } }); const carries = sessionData.map(s => parseFloat(s.Carry)); document.getElementById('dispersionStats').innerText = `Session Range: ${Math.round(Math.min(...carries))} - ${Math.round(Math.max(...carries))} yds`; }
-function renderImpact() { const container = document.getElementById('impactDots'); container.innerHTML = ""; sessionData.slice(-25).forEach(s => { const ix = parseFloat(s.ImpactPointX || 0); const iy = parseFloat(s.ImpactPointY || 0); const x = 50 + (ix * 1.5); const y = 45 - (iy * 1.8); const dot = document.createElement('div'); dot.className = "strike-dot"; dot.style.left = x + "%"; dot.style.top = y + "%"; dot.style.backgroundColor = (Math.abs(ix) < 2 && Math.abs(iy) < 2) ? "#4ade80" : "#ff4d4d"; container.appendChild(dot); }); }
-function syncNextShot() { if(sessionData.length === 0) return alert("No CSV data loaded"); if (currentShotIndex < 0) currentShotIndex = sessionData.length - 1; const currentShot = sessionData[currentShotIndex]; const bSpd = parseFloat(currentShot.BallSpeed); const defaultSmash = 1.45; document.getElementById('smashFactor').value = defaultSmash; document.getElementById('clubSpeed').value = (bSpd / defaultSmash).toFixed(1); document.getElementById('launchAngle').value = parseFloat(currentShot.LaunchAngle); document.getElementById('spinRate').value = parseFloat(currentShot.TotalSpin); document.getElementById('aoa').value = parseFloat(currentShot.AoA); document.getElementById('syncClubName').textContent = currentShot.Club || "UNK"; document.querySelectorAll('input').forEach(i => i.dispatchEvent(new Event('input'))); currentShotIndex--; if (currentShotIndex < 0) { currentShotIndex = sessionData.length - 1; } }
-function updatePhysics() { const v0 = (document.getElementById('clubSpeed').value * document.getElementById('smashFactor').value) * CONFIG.MPH_TO_MS; const baseLaunch = parseFloat(document.getElementById('launchAngle').value); const aoaEffect = parseFloat(document.getElementById('aoa').value); const launchDeg = baseLaunch + (aoaEffect * 0.5); const backspin = parseFloat(document.getElementById('spinRate').value); const rad = launchDeg * Math.PI / 180; let vx = v0 * Math.cos(rad), vy = v0 * Math.sin(rad), x = 0, y = 0, apex = 0; const pts = []; for (let i = 0; i < 1500; i++) { pts.push({x, y}); if (y > apex) apex = y; let v = Math.sqrt(vx*vx + vy*vy); let drag = 0.5 * 1.15 * v * v * 0.24 * CONFIG.BALL_AREA_M2; let lift = 0.5 * 1.15 * v * v * (backspin/2800 * 0.18) * CONFIG.BALL_AREA_M2; vx -= (drag * (vx/v) + lift * (vy/v)) / CONFIG.BALL_MASS_KG * CONFIG.DT; vy -= (CONFIG.GRAVITY + (drag * (vy/v) - lift * (vx/v)) / CONFIG.BALL_MASS_KG) * CONFIG.DT; x += vx * CONFIG.DT; y += vy * CONFIG.DT; if (y < 0) break; } const carry = x * CONFIG.YARDS_PER_METER; const d = pts.map((p, i) => `${i===0?'M':'L'}${11 + p.x*CONFIG.YARDS_PER_METER*CONFIG.SCALE_X},${185 - p.y*CONFIG.YARDS_PER_METER*CONFIG.SCALE_Y}`).join(' '); currentPathData = d; document.getElementById('livePath').setAttribute('d', d); document.getElementById('valCarry').textContent = Math.round(carry); document.getElementById('valTotal').textContent = Math.round(carry * 1.08); const apexYards = apex * CONFIG.YARDS_PER_METER; document.getElementById('valApex').textContent = Math.round(apexYards * 3); document.getElementById('valLaunch').textContent = launchDeg.toFixed(1); document.getElementById('valSmash').textContent = document.getElementById('smashFactor').value; }
-function freezeArc() { const g = document.createElementNS("http://www.w3.org/2000/svg", "path"); g.setAttribute('d', currentPathData); g.setAttribute('stroke', 'rgba(212,175,55,0.2)'); g.setAttribute('fill', 'none'); g.setAttribute('stroke-width', '1'); document.getElementById('ghostLayer').appendChild(g); }
+
+function renderBagAudit() {
+  const groups = {};
+  sessionData.forEach(s => {
+    const club = s.Club || "Unknown";
+    if(!groups[club]) groups[club] = [];
+    groups[club].push(fParse(s.Carry));
+  });
+  let html = `<table class="data-table"><tr><th>Club</th><th>Avg</th><th>Min</th><th>Max</th><th>SD</th></tr>`;
+  const sortedClubs = Object.keys(groups).sort((a,b) => {
+    const avgA = groups[a].reduce((p,c)=>p+c,0)/groups[a].length;
+    const avgB = groups[b].reduce((p,c)=>p+c,0)/groups[b].length;
+    return avgB - avgA;
+  });
+  let lastAvg = null;
+  sortedClubs.forEach(c => {
+    const vals = groups[c];
+    const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const sd = Math.sqrt(vals.map(x => Math.pow(x - avg, 2)).reduce((a,b) => a+b)/vals.length);
+    let gapClass = (lastAvg && Math.abs(lastAvg - avg) < 9) ? "gap-alert" : "";
+    html += `<tr><td>${c}</td><td class="${gapClass}">${Math.round(avg)}</td><td>${Math.round(min)}</td><td>${Math.round(max)}</td><td>${sd.toFixed(1)}</td></tr>`;
+    lastAvg = avg;
+  });
+  document.getElementById('auditContainer').innerHTML = html + `</table>`;
+}
+
+function renderDispersion() {
+  const container = document.getElementById('dispersionDots');
+  const labels = document.getElementById('dispersionLabels');
+  container.innerHTML = ""; labels.innerHTML = "";
+  const startYd = 20; const endYd = 350; const step = 40;
+  for(let yd = startYd; yd <= endYd; yd += step) {
+    const x = 20 + ((yd - startYd) / (endYd - startYd)) * 360;
+    const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    txt.setAttribute("x", x); txt.setAttribute("y", 65); txt.setAttribute("fill", "var(--brass)");
+    txt.setAttribute("font-size", "7"); txt.setAttribute("text-anchor", "middle"); txt.textContent = yd;
+    labels.appendChild(txt);
+  }
+  if(sessionData.length === 0) return;
+  sessionData.forEach(s => {
+    const carry = fParse(s.Carry);
+    if (carry >= startYd && carry <= endYd) {
+      const x = 20 + ((carry - startYd) / (endYd - startYd)) * 360;
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("cx", x); circle.setAttribute("cy", 50); circle.setAttribute("r", 4);
+      circle.setAttribute("fill", "var(--brass)"); circle.setAttribute("opacity", "0.6");
+      container.appendChild(circle);
+    }
+  });
+}
+
+function renderImpact() {
+  const container = document.getElementById('impactDots');
+  container.innerHTML = "";
+  sessionData.slice(-25).forEach(s => {
+    const ix = fParse(s.ImpactPointX);
+    const iy = fParse(s.ImpactPointY);
+    const x = 50 + (ix * 1.5);
+    const y = 45 - (iy * 1.8);
+    const dot = document.createElement('div');
+    dot.className = "strike-dot";
+    dot.style.left = x + "%";
+    dot.style.top = y + "%";
+    dot.style.backgroundColor = (Math.abs(ix) < 2 && Math.abs(iy) < 2) ? "#4ade80" : "#ff4d4d";
+    container.appendChild(dot);
+  });
+}
+
+function syncNextShot() {
+  if(sessionData.length === 0) return alert("No CSV data loaded");
+  if (currentShotIndex < 0) currentShotIndex = sessionData.length - 1;
+  const currentShot = sessionData[currentShotIndex];
+  
+  const bSpd = fParse(currentShot.BallSpeed);
+  const defaultSmash = 1.45;
+  document.getElementById('smashFactor').value = defaultSmash;
+  document.getElementById('clubSpeed').value = (bSpd / defaultSmash).toFixed(1);
+  document.getElementById('launchAngle').value = fParse(currentShot.LaunchAngle);
+  document.getElementById('spinRate').value = fParse(currentShot.TotalSpin);
+  document.getElementById('aoa').value = fParse(currentShot.AoA);
+  document.getElementById('syncClubName').textContent = currentShot.Club || "UNK";
+  
+  document.querySelectorAll('input').forEach(i => i.dispatchEvent(new Event('input')));
+  currentShotIndex--;
+  if (currentShotIndex < 0) currentShotIndex = sessionData.length - 1;
+}
+
+function updatePhysics() {
+  const v0 = (fParse(document.getElementById('clubSpeed').value) * fParse(document.getElementById('smashFactor').value)) * CONFIG.MPH_TO_MS;
+  const baseLaunch = fParse(document.getElementById('launchAngle').value);
+  const aoaEffect = fParse(document.getElementById('aoa').value);
+  const launchDeg = baseLaunch + (aoaEffect * 0.5);
+  const backspin = fParse(document.getElementById('spinRate').value);
+  const rad = launchDeg * Math.PI / 180;
+  let vx = v0 * Math.cos(rad), vy = v0 * Math.sin(rad), x = 0, y = 0, apex = 0;
+  const pts = [];
+  for (let i = 0; i < 1500; i++) {
+    pts.push({x, y});
+    if (y > apex) apex = y;
+    let v = Math.sqrt(vx*vx + vy*vy);
+    let drag = 0.5 * 1.15 * v * v * 0.24 * CONFIG.BALL_AREA_M2;
+    let lift = 0.5 * 1.15 * v * v * (backspin/2800 * 0.18) * CONFIG.BALL_AREA_M2;
+    vx -= (drag * (vx/v) + lift * (vy/v)) / CONFIG.BALL_MASS_KG * CONFIG.DT;
+    vy -= (CONFIG.GRAVITY + (drag * (vy/v) - lift * (vx/v)) / CONFIG.BALL_MASS_KG) * CONFIG.DT;
+    x += vx * CONFIG.DT; y += vy * CONFIG.DT;
+    if (y < 0) break;
+  }
+  const carry = x * CONFIG.YARDS_PER_METER;
+  const d = pts.map((p, i) => `${i===0?'M':'L'}${11 + p.x*CONFIG.YARDS_PER_METER*CONFIG.SCALE_X},${185 - p.y*CONFIG.YARDS_PER_METER*CONFIG.SCALE_Y}`).join(' ');
+  currentPathData = d;
+  document.getElementById('livePath').setAttribute('d', d);
+  document.getElementById('valCarry').textContent = Math.round(carry);
+  document.getElementById('valTotal').textContent = Math.round(carry * 1.08);
+  document.getElementById('valApex').textContent = Math.round(apex * CONFIG.YARDS_PER_METER * 3);
+  document.getElementById('valLaunch').textContent = launchDeg.toFixed(1);
+  document.getElementById('valSmash').textContent = document.getElementById('smashFactor').value;
+}
+
+function freezeArc() {
+  const g = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  g.setAttribute('d', currentPathData);
+  g.setAttribute('stroke', 'rgba(212,175,55,0.2)');
+  g.setAttribute('fill', 'none');
+  g.setAttribute('stroke-width', '1');
+  document.getElementById('ghostLayer').appendChild(g);
+}
+
 function resetLab() { document.getElementById('ghostLayer').innerHTML = ""; }
-document.querySelectorAll('input').forEach(i => i.addEventListener('input', () => { const valEl = document.getElementById(i.id + 'Val'); if(valEl) valEl.textContent = i.value + (i.id === 'launchAngle' || i.id === 'aoa' ? '°' : ''); updatePhysics(); }));
+
+document.querySelectorAll('input').forEach(i => i.addEventListener('input', () => {
+  const valEl = document.getElementById(i.id + 'Val');
+  if(valEl) valEl.textContent = i.value + (i.id === 'launchAngle' || i.id === 'aoa' ? '°' : '');
+  updatePhysics();
+}));
+
 updatePhysics();
 
-/* PWA SERVICE WORKER REGISTRATION */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').then(reg => {
-      // Check for updates automatically
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // New version available! Reload automatically.
             window.location.reload();
           }
         });
@@ -220,6 +411,7 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+
 
 
 
